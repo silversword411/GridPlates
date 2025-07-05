@@ -1,19 +1,7 @@
-// Author: https://makerworld.com/en/@TooManyThings
-// Link: https://makerworld.com/en/models/<todo>
-// License: MIT
-
-// Based on: 
-// Link: https://makerworld.com/en/models/476846
-// Author: https://makerworld.com/@LayerCake
-// License: MIT
-
 // Based on the excellent Gridfinity system by Zach Freedman
 // Wiki: https://gridfinity.xyz/
 
-// Differeces from the standard design:
-//  - The interface has an added 0.4 mm flat section on top.
-//  - The bottom chamfer has been extended for improved print bed adhesion.
-//  - The base units can be overwritten which breaks compatibility but can use all space available.
+// v1.0 7/5/2025 Initial version of GridPlates fork.
 
 // Enter measured size in mm, or, number of Gridfinity units x 42.
 Width = 325;
