@@ -1,53 +1,82 @@
 // Based on the excellent Gridfinity system by Zach Freedman
 // Wiki: https://gridfinity.xyz/
-
 // v1.0 7/5/2025 Initial version of GridPlates fork.
+// v1.1 8/24/2025 - Fixing connectors and spacing calculators. Adding corner cutouts. 
 
-// Enter measured size in mm, or, number of Gridfinity units x 42.
-Width = 325;
+// For exact Gridfinity units, multiply by 42. eg 10 Gridfinity spaces is 10 * 42 = 420
+Width_in_mm = 325;
 
-// Enter measured size in mm, or, number of Gridfinity units x 42.
-Depth = 275;
+// For exact Gridfinity units, multiply by 42. eg 10 Gridfinity spaces is 10 * 42 = 420
+Depth_in_mm = 275;
 
-// Suggest 2mm where measurements don't already allow for clearance.
+// Suggest 2mm if measurements don't allow for clearance.
 Clearance = 0;
 
 Build_Plate_Size=236; //[180: Small (A1 Mini), 236: Standard (X1/P1/A1), 350: Large (350mm)]
 
+/* [Options] */
+
+// Type of interlocking mechanism between plates.
+Interlock_Type = 1; // [0: None (Butt-Together Baseplate), 1: Standard gridPlates Tab, 2: Looser gridPlates Tab]
+
 // Include a half-width grid in the margin(s) if there is sufficient space.
 Half_Sized_Filler = true;
 
-// In mm. Use with caution as this will increase warping.
-Solid_Base_Thickness = 0;
+// Designed to fit drawers where the bottom edges are not square but rounded.
+Bottom_Edge_Chamfer_in_mm = 0;
+
+// Use with caution as this will increase warping.
+Solid_Base_Thickness_in_mm = 0;
 
 /* [Advanced] */
 
-// Offset grid right or left in mm.
-Offset_Horizontal = 0;
+// Offset grid right or left.
+Offset_Horizontal_in_mm = 0;
 
-// Offset grid back or forward in mm.
-Offset_Vertical = 0;
-
-// When the base plate has margins, add additional rounding to the base plate corners. The larger the margins, the more extra rounding.
-Extra_Corner_Rounding = true;
-
-// When disabled, a normal butt-together baseplate will be generated.
-Generate_Locking_Tabs = true;
+// Offset grid back or forward.
+Offset_Vertical_in_mm = 0;
 
 // Mirrors the baseplate left-to-right.
-Mirror = false;
+Mirror_Horizontally = false;
+
+// Mirrors the baseplate front-to-back.
+Mirror_Vertically = false;
+
+// Cuts a concave quarter-circle from the four outer corners of the complete baseplate. Great for wire racks.
+Corner_Cutout_in_mm = 0;
+
+// Renders a single small plate for quick previews and debugging.
+Debug_Mode = false;
+
+// Amount of extra rounding to apply to the corners. This value is limited based on the size of the margins.
+Extra_Corner_Rounding = 0;
 
 // Standard Gridfinity is 42 mm
 Base_Unit_Width_Depth = 42;
 
 /* [Hidden] */
 
-// Default: 4 mm (Minimum: 4 mm)
-Base_Unit_Radius = 4;
+// --- Gridfinity System Dimensions ---
+b_top_chamfer_height = 1.9;
+b_center_height = 1.8;
+b_bottom_chamfer_height = 0.8;
+b_bottom_vertical_height = 0;
+b_corner_center_inset = 4;
+b_corner_center_radius = 1.85;
+
+// --- Interlock Profile Data ---
+// Data for the interlocking tab profiles.
+// "017" and "025" likely refer to different tolerance versions.
+standard_interlock_profile_1 = [[0.25,38.52,0.13],[0.17,38.81,0],[-0.78,40.45,-0.77],[-0.43,40.8,0],[0.44,40.29,0.58],[1.07,40.65,0]];
+standard_interlock_profile_2 = [[0.9,40.65,-0.58],[0.53,40.44,0],[-0.35,40.94,0.77],[-0.92,40.37,0],[-0.28,39.26,-0.13],[-0.25,39.14,0]];
+looser_interlock_profile_1 = [[0.25,38.52,0.13],[0.18,38.77,0],[-0.74,40.37,-0.77],[-0.4,40.72,0],[0.43,40.24,0.58],[1.18,40.67,0]];
+looser_interlock_profile_2 = [[0.93,40.67,-0.58],[0.56,40.45,0],[-0.27,40.93,0.77],[-0.96,40.25,0],[-0.28,39.08,-0.13],[-0.25,38.96,0]];
+
+// --- Derived Calculations ---
 
 // Calculate unit counts, margins and whether we have half strips.
-adjusted_width = Width - Clearance;
-adjusted_depth = Depth - Clearance;
+adjusted_width = Width_in_mm - Clearance;
+adjusted_depth = Depth_in_mm - Clearance;
 
 whole_units_wide = floor(adjusted_width / Base_Unit_Width_Depth);
 whole_units_deep = floor(adjusted_depth / Base_Unit_Width_Depth);
@@ -63,497 +92,213 @@ units_deep = whole_units_deep + (have_horizontal_half_strip ?  0.5 : 0);
     
 half_margin_h = (adjusted_width - units_wide * Base_Unit_Width_Depth) / 2;
 half_margin_v = (adjusted_depth - units_deep * Base_Unit_Width_Depth) / 2;
-margin_left = half_margin_h + Offset_Horizontal;
-margin_top = half_margin_v + Offset_Vertical;
-margin_right = half_margin_h - Offset_Horizontal;
-margin_bottom = half_margin_v - Offset_Vertical;
+margin_left = half_margin_h + Offset_Horizontal_in_mm;
+margin_back = half_margin_v + Offset_Vertical_in_mm;
+margin_right = half_margin_h - Offset_Horizontal_in_mm;
+margin_front = half_margin_v - Offset_Vertical_in_mm;
+max_margin = max(max(margin_left, margin_right), max(margin_front, margin_back)); 
 
-radius_front_left = Base_Unit_Radius + (Extra_Corner_Rounding ? min(margin_left, margin_bottom): 0);
-radius_back_left = Base_Unit_Radius + (Extra_Corner_Rounding ? min(margin_left, margin_top): 0);
-radius_back_right = Base_Unit_Radius + (Extra_Corner_Rounding ? min(margin_right, margin_top): 0);
-radius_front_right = Base_Unit_Radius + (Extra_Corner_Rounding ? min(margin_right, margin_bottom): 0);
+base_corner_radius = 4;
+max_extra_corner_radius = max(min(margin_left, margin_right), min(margin_front, margin_back));
+outer_corner_radius = base_corner_radius + max(0, min(Extra_Corner_Rounding, max_extra_corner_radius));
 
 fn_min = 20;
 fn_max = 40;
 function lerp(x, x0, x1, y0, y1) = y0 + (x - x0) * (y1 - y0) / (x1 - x0);
-$fn = max(min(lerp(units_wide*units_deep, 200, 400, fn_max, fn_min), fn_max), fn_min);
+$fn = max(min(lerp(units_wide*units_deep, 300, 600, fn_max, fn_min), fn_max), fn_min);
 
-max_unit_dimension = max(units_wide, whole_units_wide, whole_units_deep);
-
-// Base Unit Width/Depth
-b_xy = Base_Unit_Width_Depth;
-// Base Radius
-b_r = Base_Unit_Radius;
-
-// Interface Top Flat
-i_t_f = 0.4;
-// Interface Top Chamfer
-i_t_c = 1.75;
-// Interface Middle Height
-i_m_h = 1.8;
-// Interface Bottom Chamfer
-i_b_c = 1.05;
-// Interface Overall Height
-i_h = i_t_c + i_m_h + i_b_c;
-
-// Need to increase as the cutting tool intentionally extends deeper than necessary.
-extra_base_thickness = Solid_Base_Thickness > 0 ? Solid_Base_Thickness + 0.5 : 0;
+selected_plate_size = Build_Plate_Size;
 
 max_recursion_depth = 12;
 part_spacing = 10;
 
-cutting_start_offset = [-b_xy*units_wide/2, -b_xy*units_deep/2, 0];
-interface_offset = cutting_start_offset + [b_xy*0.5, b_xy*0.5, 0];
+cut_overshoot = 0.1;
+non_gridplates_edge_clearance = 0.25;
+min_corner_radius = 1;
+gridplates_min_margin_for_full_tab = 2.75;
 
-// Entry point
-if (Mirror) {
-    mirror([1, 0, 0]) {
-        RecursiveCutX() {
-            GridfinityBasePlate();
-        }
-    }
-} else {
-    RecursiveCutX() {
-        GridfinityBasePlate();
-    }
-}
+b_total_height = b_top_chamfer_height + b_center_height + b_bottom_chamfer_height + b_bottom_vertical_height + Solid_Base_Thickness_in_mm;
 
-module RecursiveCutX(prev_offset = 0, depth = 0) {
-    offset = GetCutOffsetForward(prev_offset, margin_left, margin_right, units_wide);
-    
-    alt_y_cuts = depth % 2 != 0;
-    
-    if (offset < 0 || depth > max_recursion_depth) {
-        // We've reached the end or recursing too much, use remaining body.
-        translate([part_spacing * depth, 0, 0]) {
-            RecursiveCutY(alt_y_cuts) {
-                children();
-            }
-        }
-    } else {
-        // Cut the body
-        // Left body
-        translate([part_spacing * depth, 0, 0]) {
-            RecursiveCutY(alt_y_cuts) {
-                intersection() {
-                    children();
-                    translate([offset * Base_Unit_Width_Depth, 0, 0]) cutting_tool_left();
-                }
-            }
-        }
-        
-        // Recursively cut the right body
-        RecursiveCutX(offset, depth + 1) {
-            intersection() {
-                children();
-                translate([offset * Base_Unit_Width_Depth, 0, 0]) cutting_tool_right();
-            }
-        }
-    }
-}
+b_tool_top_chamfer_height = b_top_chamfer_height + cut_overshoot;
+b_tool_bottom_chamfer_height = b_bottom_chamfer_height + (Solid_Base_Thickness_in_mm > 0 || b_bottom_vertical_height > 0 ? 0 : cut_overshoot);
+b_tool_bottom_vertical_height = b_bottom_vertical_height > 0 ? (b_bottom_vertical_height + (Solid_Base_Thickness_in_mm > 0 ? 0 : cut_overshoot)) : 0;
 
-module RecursiveCutY(alt_cuts, prev_offset = 0, depth = 0) {
-    standard_offset = GetCutOffsetForward(prev_offset, margin_bottom, margin_top, units_deep);
-    offset = alt_cuts && prev_offset==0 && standard_offset >= 0 ? 
-        GetAltStartOffset(margin_bottom, margin_top, units_deep) :
-        standard_offset;
-    
-    if (offset < 0 || depth > max_recursion_depth) {
-        // We've reached the end or recursing too much, return the remaining body
-        translate([0, part_spacing * depth, 0]) {
-            children();
-        }
-    } else {
-        // Cut the body
-        // Bottom body
-        translate([0, part_spacing * depth, 0]) {
-            intersection() {
-                children();
-                translate([0, offset * Base_Unit_Width_Depth, 0]) 
-                    cutting_tool_bottom();
-            }
-        }
-        
-        // Recursively cut the top body
-        RecursiveCutY(alt_cuts, offset, depth + 1) {
-            intersection() {
-                children();
-                translate([0, offset * Base_Unit_Width_Depth, 0]) 
-                    cutting_tool_top();
-            }
-        }
-    }
-}
+b_tool_top_scale = (b_corner_center_radius + b_tool_top_chamfer_height) / b_corner_center_radius;
+b_tool_bottom_scale = (b_corner_center_radius - b_tool_bottom_chamfer_height) / b_corner_center_radius;
 
-function GetCutOffsetForward(prev_offset, margin_start, margin_end, axis_unit_length) =
-    let(
-        prev_carry_over = prev_offset == 0 ? margin_start : left_tab_extent,
-        remaining = prev_carry_over + (axis_unit_length - prev_offset) * Base_Unit_Width_Depth + margin_end,
-        next_offset = prev_offset + floor((Build_Plate_Size - left_tab_extent - right_tab_extent - (prev_offset == 0 ? margin_start : 0)) / Base_Unit_Width_Depth),
-        next_remaining_approx = (axis_unit_length - next_offset) * Base_Unit_Width_Depth + margin_end
-    )
-       
-    remaining <= Build_Plate_Size ? -1 :
-    (next_remaining_approx < Base_Unit_Width_Depth + tab_needed_vertical_extent) ? next_offset - 1 :
-    next_offset;
+polyline_data_1 = Interlock_Type == 2 ? looser_interlock_profile_1 : standard_interlock_profile_1;
+polyline_data_2 = Interlock_Type == 2 ? looser_interlock_profile_2 : standard_interlock_profile_2;
 
-function GetAltEndOffset(margin_end, axis_unit_length) =
-    let(
-        space_for_full_units = Build_Plate_Size - margin_end - left_tab_extent - (axis_unit_length % 1) * Base_Unit_Width_Depth,
-        full_units = floor(space_for_full_units / Base_Unit_Width_Depth),
-        offset = floor(axis_unit_length) - full_units
-    )
-    offset;
+// Converts a polyline with arc segments (defined by a bulge factor) into a series of straight line segments.
+function tessellate_arc(start, end, bulge, segments = 8) = let(chord=end-start,chord_length=norm(chord),sagitta=abs(bulge)*chord_length/2,radius=(chord_length/2)^2/(2*sagitta)+sagitta/2,center_height=radius-sagitta,center_offset=[-chord.y,chord.x]*center_height/chord_length,center=(start+end)/2+(bulge>=0?center_offset:-center_offset),start_angle=atan2(start.y-center.y,start.x-center.x),end_angle=atan2(end.y-center.y,end.x-center.x),angle_diff=(bulge>=0)?(end_angle<start_angle?end_angle-start_angle+360:end_angle-start_angle):(start_angle<end_angle?start_angle-end_angle+360:start_angle-end_angle),num_segments=max(1,round(segments*(angle_diff/360))),angle_step=angle_diff/num_segments) [for(i=[0:num_segments-1]) let(angle=start_angle+(bulge>=0?1:-1)*i*angle_step) center+radius*[cos(angle),sin(angle)]];
+function tessellate_polyline(data) = let(polyline_curve_segments=8,points=[for(i=[0:len(data)-1]) let(start=[data[i][0],data[i][1]],end=[data[(i+1)%len(data)][0],data[(i+1)%len(data)][1]],bulge=data[i][2]) if(bulge==0) [start] else tessellate_arc(start,end,bulge,polyline_curve_segments)]) [for(segment=points,point=segment) point];
+function reverse_polyline_data(data) = let(n=len(data),reversed=[for(i=[n-1:-1:0]) [data[i][0],data[i][1],i>0?-data[i-1][2]:0]]) reversed;
 
-function GetUnitsPerInnerSection(axis_unit_length) =
-    let(
-        space_for_full_units = Build_Plate_Size - left_tab_extent - right_tab_extent
-    )
-    floor(space_for_full_units / Base_Unit_Width_Depth);
+function get_min_polyline_x(data) = min([for (point = tessellate_polyline(data)) point[0]]);
+function get_max_polyline_x(data) = max([for (point = tessellate_polyline(data)) point[0]]);
 
-function GetAltStartOffset(margin_start, margin_end, axis_unit_length) =
-    let(
-        end_offset = GetAltEndOffset(margin_end, axis_unit_length),
-        units_per_inner_section = GetUnitsPerInnerSection(axis_unit_length),
-        initial_offset = end_offset % units_per_inner_section,
-        adjusted_offset = 
-            (initial_offset == 0) ?
-                (Base_Unit_Width_Depth * units_per_inner_section + right_tab_extent + margin_start <= Build_Plate_Size) ?
-                    units_per_inner_section : 1
-            : initial_offset,
-        final_offset = 
-            (adjusted_offset == 1 && margin_start < tab_needed_vertical_extent) ?
-                2 : adjusted_offset
-    )
-    final_offset;
-  
-module GridfinityBasePlate()
-{
-    difference() {
-        // Grid
-        g_w = b_xy * units_wide;
-        g_d = b_xy * units_deep;
-        // Main Body
-        mb_w = g_w + margin_left + margin_right;
-        mb_d = g_d + margin_top + margin_bottom;
-
-        base_height = i_h + extra_base_thickness;
-        translate([-g_w/2-margin_left,-g_d/2-margin_bottom, - extra_base_thickness]) {
-            difference() {
-                cube([mb_w, mb_d, base_height]);
-                CornerChamferCutter(radius_front_left, base_height);
-                translate([0,mb_d,0]) {
-                    mirror([0,1,0]) {
-                        CornerChamferCutter(radius_back_left, base_height);
-                    }
-                }
-                translate([mb_w,mb_d,0]) {
-                    mirror([1,1,0]) {
-                        CornerChamferCutter(radius_back_right, base_height);
-                    }
-                }
-                translate([mb_w,0,0]) {
-                    mirror([1,0,0]) {
-                        CornerChamferCutter(radius_front_right, base_height);
-                    }
-                }
-            }
-        }
-        // Interface Pattern
-        translate(interface_offset) {
-            for(w=[1:ceil(units_wide)]) {
-                for(d=[1:ceil(units_deep)]) {
-                    translate([b_xy*(w-1), b_xy*(d-1),0]) {
-                        GridfinityInterface(w > units_wide ? 0.5 : 1, d > units_deep ? 0.5 : 1);
-                    }
-                }
-            }
-        }
-    }
-}
-
-module GridfinityInterface(x_scale, y_scale) {
-    translate([(x_scale-1)*0.5*b_xy,(y_scale-1)*0.5*b_xy]) {
-        union() {
-            translate([0,0,-0.5]) {
-                BottomChamferedRoundedSquare(b_xy*x_scale-(i_t_f+i_t_c)*2, b_xy*y_scale-(i_t_f+i_t_c)*2, i_b_c+i_m_h+1.5, b_r-(i_t_f+i_t_c), i_b_c+0.5);
-            }
-            translate([0,0,i_b_c+i_m_h]) {
-                BottomChamferedRoundedSquare(b_xy*x_scale-i_t_f, b_xy*y_scale-i_t_f, i_t_c+0.5, b_r-i_t_f, i_t_c+0.5);
-            }
-        }
-    }
-}
-
-module CornerChamferCutter(radius, height) {
-    translate([radius,radius,0]) {
-        mirror([1,1,0]) {
-            difference() {
-                translate([0,0,-1]) {
-                    cube([radius*2, radius*2, height+2]);
-                }
-                translate([0,0,-2]) {
-                    cylinder(h=height+4,r=radius);
-                }
-            }
-        }
-    }
-}
-
-module RoundedSquare(width, depth, height, radius) {
-    minkowski() {
-        rs_x = width - radius * 2;
-        rs_y = depth - radius * 2;
-        XYCenteredCube(rs_x, rs_y, height/2);
-        cylinder(r=radius, h=height/2);
-    }
-}
-
-module BottomChamferedRoundedSquare(width, depth, height, radius, chamfer){
-    union() {
-        difference() {
-            // larger/straight dimensions
-            l_x = width/2;
-            l_y = depth/2;
-            // smaller/chamfered dimensions
-            s_x = l_x - chamfer;
-            s_y = l_y - chamfer;
-            polyhedron(
-                points=[[s_x,s_y,0], [s_x,-s_y,0], [-s_x,-s_y,0], [-s_x,l_y-chamfer,0], // base
-                        [l_x,l_y,chamfer], [l_x,-l_y,chamfer], [-l_x,-l_y,chamfer], [-l_x,l_y,chamfer], //middle
-                        [l_x,l_y,height], [l_x,-l_y,height], [-l_x,-l_y,height], [-l_x,l_y,height]], //top 
-                faces=[[3,2,1,0], // base
-                       [5,4,0,1], [4,7,3,0], [7,6,2,3], [6,5,1,2], // angled sides
-                       [9,8,4,5], [8,11,7,4], [11,10,6,7], [10,9,5,6], // straight sides
-                       [11,8,9,10]] // top
-            );
-            // Cutout Corners
-            rcs_c1x = width / 2 - radius / 2 + 1;
-            rcs_c1y = depth / 2 - radius / 2 + 1;
-            translate([rcs_c1x,rcs_c1y,height/2]) {
-                cube([radius+2, radius+2, height+1], true);
-            }
-            translate([rcs_c1x,-rcs_c1y,height/2]) {
-                cube([radius+2, radius+2, height+1], true);
-            }
-            translate([-rcs_c1x,-rcs_c1y,height/2]) {
-                cube([radius+2, radius+2, height+1], true);
-            }
-            translate([-rcs_c1x,rcs_c1y,height/2]) {
-                cube([radius+2, radius+2, height+1], true);
-            }
-        }
-        // Rounded Corners
-        rcs_c2x = width / 2 - radius;
-        rcs_c2y = depth / 2 - radius;
-        // Chamfer
-        translate([rcs_c2x,rcs_c2y,0]) {
-            BottomChamferedCylinder(radius, height, chamfer);
-        }
-        translate([rcs_c2x,-rcs_c2y,0]) {
-            BottomChamferedCylinder(radius, height, chamfer);
-        }
-        translate([-rcs_c2x,-rcs_c2y,0]) {
-            BottomChamferedCylinder(radius, height, chamfer);
-        }
-        translate([-rcs_c2x,rcs_c2y,0]) {
-            BottomChamferedCylinder(radius, height, chamfer);
-        }
-    }
-}
-
-module BottomChamferedCylinder(radius, height, chamfer) {
-    difference() {
-        cylinder(h=height, r=radius);
-        difference() {
-            translate([0,0,-1]) {
-                cylinder(h=chamfer+1, r=radius+1);
-            }
-            cylinder(h=chamfer*2, r1=radius-chamfer, r2=radius+chamfer);
-        }
-    }
-}
-
-module XYCenteredCube(width, depth, height) {
-    translate([-width/2,-depth/2,0]) {
-        cube([width, depth, height]);
-    }
-}
-
-// Tessellation functions
-function tessellate_arc(start, end, bulge, segments = 8) =
-    let(
-        chord = end - start,
-        chord_length = norm(chord),
-        sagitta = abs(bulge) * chord_length / 2,
-        radius = (chord_length/2)^2 / (2*sagitta) + sagitta/2,
-        center_height = radius - sagitta,
-        center_offset = [-chord.y, chord.x] * center_height / chord_length,
-        center = (start + end)/2 + (bulge >= 0 ? center_offset : -center_offset),
-        start_angle = atan2(start.y - center.y, start.x - center.x),
-        end_angle = atan2(end.y - center.y, end.x - center.x),
-        angle_diff = (bulge >= 0) ?
-            (end_angle < start_angle ? end_angle - start_angle + 360 : end_angle - start_angle) :
-            (start_angle < end_angle ? start_angle - end_angle + 360 : start_angle - end_angle),
-        num_segments = max(1, round(segments * (angle_diff / 360))),
-        angle_step = angle_diff / num_segments
-    )
-    [for (i = [0 : num_segments - 1])
-        let(angle = start_angle + (bulge >= 0 ? 1 : -1) * i * angle_step)
-        center + radius * [cos(angle), sin(angle)]
-    ];
-    
-function tessellate_polyline(data, segments = 8) =
-    let(
-        points = [for (i = [0:len(data)-1])
-            let(
-                start = [data[i][0], data[i][1]],
-                end = [data[(i+1) % len(data)][0], data[(i+1) % len(data)][1]],
-                bulge = data[i][2]
-            )
-            if (bulge == 0)
-                [start]
-            else
-                tessellate_arc(start, end, bulge, segments)
-        ]
-    )
-    [for (segment = points, point = segment) point];
-        
-// Profile data (as provided before)
-function reverse_polyline_data(data) = 
-    let(
-        n = len(data),
-        reversed = [for (i = [n-1:-1:0]) 
-            [data[i][0], data[i][1], 
-             i > 0 ? -data[i-1][2] : 0]  // Negate bulge from previous point
-        ]
-    )
-    reversed;
-       
-polyline_data_1 = [
-    [0.2499999999999975, 38.523373536222223, 0.13165249758739542],
-    [0.17229473419497243, 38.813373536222223, 0],
-    [-0.77549874656872519, 40.454999999987507, -0.76732698797895982],
-    [-0.43399239561125647, 40.796506350944981, 0],
-    [0.44430391496627875, 40.289421739604791, 0.57735026918962284],
-    [1.0743039149299163, 40.653152409173259, 0]
-];
-
-polyline_data_2 = [
-    [0.90430391492990991, 40.653152409173259, -0.57735026918962595],
-    [0.52930391496627871, 40.436646058248151, 0],
-    [-0.3489923956112484, 40.943730669588334, 0.76732698797896193],
-    [-0.92272306521208713, 40.369999999987513, 0],
-    [-0.28349364905389146, 39.262822173508923, -0.13165249758738012],
-    [-0.25000000000000011, 39.137822173508923, 0]
-];
-
-polyline_data_1_no_tab = [
-    [0.2499999999999975, 38.523373536222223, 0],
-    [0.2499999999999975, 40.653152409173259, 0]
-];
-
-polyline_data_2_no_tab = [
-    [-0.25000000000000011, 40.653152409173259, 0],
-    [-0.25000000000000011, 39.137822173508923, 0]
-];
-
-
-
-function get_min_polyline_x(data, segments = 8) =
-    min([for (point = tessellate_polyline(data, segments)) point[0]]);
-
-function get_max_polyline_x(data, segments = 8) =
-    max([for (point = tessellate_polyline(data, segments)) point[0]]);
-    
 left_tab_extent = -min(0, min(get_min_polyline_x(polyline_data_1), get_min_polyline_x(polyline_data_2)));
 right_tab_extent = max(0, max(get_max_polyline_x(polyline_data_1), get_max_polyline_x(polyline_data_2)));
-tab_needed_vertical_extent = 3; // Need approx. 3mm each side for a decent tab.
 reversed_polyline_data_2 = reverse_polyline_data(polyline_data_2);    
-reversed_polyline_data_2_no_tab = reverse_polyline_data(polyline_data_2_no_tab);    
+tab_min_clearance = polyline_data_1[len(polyline_data_1)-1][0] - polyline_data_2[0][0];
 
-function modify_and_mirror_profile(data) =
-    let(
-        tessellated = tessellate_polyline(data),
-        shifted = [for (point = tessellated) [point.x, point.y - 42]],
-        mirrored = [for (point = reversed(shifted)) [point.x, -point.y]],
-        connection_point = shifted[len(shifted)-1],
-        mirrored_connection = [connection_point.x, -connection_point.y]
-    )
-    [
-        each shifted,
-        mirrored_connection,
-        each mirrored
-    ];
+tab_extent_allowance = max(left_tab_extent, right_tab_extent) + cut_overshoot + min_corner_radius;
+gridplates_tool_extent_allowance = tab_extent_allowance + cut_overshoot;
 
-// Helper function to reverse an array
-function reversed(arr) = [for (i = [len(arr)-1:-1:0]) arr[i]];
+function reverse_points(arr) = [for (i = [len(arr)-1:-1:0]) arr[i]];
+function y_mirror_points(points) = [for (point = reverse_points(points)) [point.x, -point.y]];
+function y_translate_points(points, y_delta) = [for (point = points) [point.x, point.y + y_delta]];
+function lower_butt_profile(direction) = let(close_clearance=tab_min_clearance/2,delta=non_gridplates_edge_clearance-close_clearance,start=[close_clearance*-direction,-gridplates_min_margin_for_full_tab],end=[start.x+delta*-direction,start.y-delta]) [end,start];
+function upper_butt_profile(direction) = [[non_gridplates_edge_clearance * -direction, 0]];
+function tesselate_and_adjust_gridplates_profile(polyline_data) = y_translate_points(tessellate_polyline(polyline_data), -42);
+function lower_half_profile(gridplates_base_profile) = gridplates_base_profile;
+function upper_half_profile(gridplates_base_profile) = y_mirror_points(gridplates_base_profile);
+function full_profile(gridplates_base_profile) = [each lower_half_profile(gridplates_base_profile),each upper_half_profile(gridplates_base_profile)];
+function repeat_profile(profile, repetitions, spacing, start_offset) = repetitions<=0?[]:let(repeated=[for(i=[0:repetitions-1]) [for(point=profile) [point.x,point.y+i*spacing+start_offset]]]) [for(segment=repeated,point=segment) point];
 
-function repeat_profile(profile, repetitions) =
-    let(
-        repeated = [for (i = [0:repetitions-1])
-            [for (point = profile)
-                [point.x, point.y + i * Base_Unit_Width_Depth]
-            ]
-        ]
-    )
-    [for (segment = repeated, point = segment) point];
+cutting_tool_height = (b_total_height + cut_overshoot) * 2;
+function gridplates_left_polyline_data() = reversed_polyline_data_2;
+function gridplates_right_polyline_data() = polyline_data_1;
 
-module extend_profile(data, direction, repetitions=max_unit_dimension+1) {
-    modified = modify_and_mirror_profile(data);
-    repeated = repeat_profile(modified, repetitions);
-    n = len(repeated);
-    
-    extension = (max_unit_dimension+2) * Base_Unit_Width_Depth * direction;
-        
-    down_ext = repeated[0] + [0, -Base_Unit_Width_Depth];
-    up_ext = repeated[n-1] + [0, Base_Unit_Width_Depth];
+// Final assembly call
+assembled_plates();
 
-    start_ext = down_ext + [extension, 0];
-    end_ext = up_ext + [extension, 0];
-        
-    polygon([
-        start_ext,
-        down_ext,
-        each repeated,
-        up_ext,
-        end_ext,
-        [end_ext.x, start_ext.y]
-    ]);
+module assembled_plates() {
+    for (plate = plates)
+        translate(overall_centering_translation(plate))
+            mirrored_base_plate(plate);
 }
 
-module cutting_profile_1() {
-    extend_profile(Generate_Locking_Tabs ? reversed_polyline_data_2 : reversed_polyline_data_2_no_tab, -1);   // Extend to the left.
-}
-
-module cutting_profile_2() {
-    extend_profile(Generate_Locking_Tabs ? polyline_data_1 : polyline_data_1_no_tab, 1);  // Extend to the right.
-}
-
-cutting_tool_height = max(i_h, extra_base_thickness) * 4;
-
-module cutting_tool_left() {
-    translate(cutting_start_offset) {
-        linear_extrude(height=cutting_tool_height, center=true) cutting_profile_1();
+module uncut_baseplate(units_x, units_y, r_fl, r_bl, r_br, r_fr, m_l, m_b, m_r, m_f) {
+    main_width = Base_Unit_Width_Depth*units_x;
+    main_depth = Base_Unit_Width_Depth*units_y;
+    difference() {
+        hull() {
+            translate([r_fl-m_l, r_fl-m_f, 0]) cylinder(r=r_fl, h=b_total_height, center=false);
+            translate([r_bl-m_l, main_depth-r_bl+m_b, 0]) cylinder(r=r_bl, h=b_total_height, center=false);
+            translate([main_width-r_br+m_r, main_depth-r_br+m_b, 0]) cylinder(r=r_br, h=b_total_height, center=false);
+            translate([main_width-r_fr+m_r, r_fr-m_f, 0]) cylinder(r=r_fr, h=b_total_height, center=false);
+        }        
+        for(y=[1:ceil(units_y)]) for(x=[1:ceil(units_x)]) translate([Base_Unit_Width_Depth*(x-0.5), Base_Unit_Width_Depth*(y-0.5),0]) gridfinity_cutting_tool(x > units_x, y > units_y);
     }
 }
 
-module cutting_tool_right() {
-    translate(cutting_start_offset) {
-        linear_extrude(height=cutting_tool_height, center=true) cutting_profile_2();
+module gridfinity_cutting_tool(half_x, half_y) {
+    base_offset = Base_Unit_Width_Depth/2 - b_corner_center_inset;
+    if (half_x || half_y) {
+        adjust_x = half_x ? Base_Unit_Width_Depth/4 : 0;
+        adjust_y = half_y ? Base_Unit_Width_Depth/4 : 0;
+        translate([-adjust_x, -adjust_y, 0]) gridfinity_cutting_tool_main(base_offset - adjust_x, base_offset - adjust_y);
+    } else {
+        gridfinity_cutting_tool_main(base_offset, base_offset);
     }
 }
 
-module cutting_tool_bottom() {
-    translate(cutting_start_offset) {
-        rotate([0, 0, -90])
-            linear_extrude(height=cutting_tool_height, center=true) cutting_profile_2();
+module gridfinity_cutting_tool_main(offset_x, offset_y) {
+    top_z_offset=b_total_height-b_top_chamfer_height;
+    middle_z_offset=top_z_offset-b_center_height;
+    bottom_z_offset=middle_z_offset-b_bottom_chamfer_height;
+    union() {
+        hull() for(x=[-offset_x,offset_x]) for(y=[-offset_y,offset_y]) translate([x,y,top_z_offset]) linear_extrude(height=b_tool_top_chamfer_height,scale=[b_tool_top_scale,b_tool_top_scale]) circle(r=b_corner_center_radius);
+        hull() for(x=[-offset_x,offset_x]) for(y=[-offset_y,offset_y]) translate([x,y,middle_z_offset]) {cylinder(r=b_corner_center_radius,h=b_center_height,center=false);mirror([0,0,1]) linear_extrude(height=b_tool_bottom_chamfer_height,scale=[b_tool_bottom_scale,b_tool_bottom_scale]) circle(r=b_corner_center_radius);}
+        if(b_tool_bottom_vertical_height>0) {tool_bottom_z_offset=bottom_z_offset-b_tool_bottom_vertical_height;hull() for(x=[-offset_x,offset_x]) for(y=[-offset_y,offset_y]) translate([x,y,tool_bottom_z_offset]) cylinder(r=b_corner_center_radius*b_tool_bottom_scale,h=b_tool_bottom_vertical_height,center=false);}
     }
 }
 
-module cutting_tool_top() {
-    translate(cutting_start_offset) {
-        rotate([0, 0, -90])
-            linear_extrude(height=cutting_tool_height, center=true) cutting_profile_1();
+module interlock_cutting_tool_left(start_tab_amount, end_tab_amount, units) {
+    gridplates_cutting_tool_common(start_tab_amount, end_tab_amount, units, gridplates_right_polyline_data(), -1);
+}
+
+module interlock_cutting_tool_right(start_tab_amount, end_tab_amount, units) {
+    gridplates_cutting_tool_common(start_tab_amount,end_tab_amount,units,gridplates_left_polyline_data(),1);
+}
+
+module interlock_cutting_tool_back(start_tab_amount, end_tab_amount, units) { rotate([0,0,-90]) interlock_cutting_tool_left(start_tab_amount, end_tab_amount, units); }
+module interlock_cutting_tool_front(start_tab_amount, end_tab_amount, units) { rotate([0,0,-90]) interlock_cutting_tool_right(start_tab_amount, end_tab_amount, units); }
+
+module gridplates_cutting_tool_profile(start_tab_amount, end_tab_amount, units, base_polyline, direction) {
+    gridplates_base_profile=tesselate_and_adjust_gridplates_profile(base_polyline);
+    full_tab_profile=full_profile(gridplates_base_profile);
+    start_profile=start_tab_amount==0?upper_butt_profile(direction):(start_tab_amount<1?upper_half_profile(gridplates_base_profile):full_tab_profile);
+    end_profile=end_tab_amount==0?lower_butt_profile(direction):(end_tab_amount<1?lower_half_profile(gridplates_base_profile):full_tab_profile);
+    translated_end_profile=y_translate_points(end_profile,Base_Unit_Width_Depth*units);
+    repeated=repeat_profile(full_tab_profile,floor(units-0.5),Base_Unit_Width_Depth,Base_Unit_Width_Depth);
+    x_ext=gridplates_tool_extent_allowance*direction;
+    down_ext=start_profile[0]+[0,-Base_Unit_Width_Depth-max_margin];
+    up_ext=translated_end_profile[len(translated_end_profile)-1]+[0,Base_Unit_Width_Depth+max_margin];
+    start_ext=[x_ext,down_ext[1]];
+    end_ext=[x_ext,up_ext[1]];
+    polygon([start_ext,down_ext,each start_profile,each repeated,each translated_end_profile,up_ext,end_ext,[end_ext[0],start_ext[1]]]);
+}
+
+module gridplates_cutting_tool_common(start_tab_amount, end_tab_amount, units, base_polyline, direction) {
+    linear_extrude(height=cutting_tool_height, center=true) gridplates_cutting_tool_profile(start_tab_amount, end_tab_amount, units, base_polyline, direction);
+}
+
+// Recursively calculates how to slice the baseplate into printable sections based on the Build_Plate_Size.
+function GetCutOffsetForward(prev_offset, margin_start, margin_end, axis_unit_length) = let(prev_carry_over=prev_offset==0?margin_start:left_tab_extent,remaining=prev_carry_over+(axis_unit_length-prev_offset)*Base_Unit_Width_Depth+margin_end,next_offset=prev_offset+floor((selected_plate_size-left_tab_extent-right_tab_extent-(prev_offset==0?margin_start:0))/Base_Unit_Width_Depth),next_remaining_approx=(axis_unit_length-next_offset)*Base_Unit_Width_Depth+margin_end) remaining<=selected_plate_size?-1:(next_remaining_approx<Base_Unit_Width_Depth+gridplates_min_margin_for_full_tab+0.001)?next_offset-1:next_offset;
+function GetAltEndOffset(margin_end, axis_unit_length) = let(space_for_full_units=selected_plate_size-margin_end-left_tab_extent-(axis_unit_length%1)*Base_Unit_Width_Depth,full_units=floor(space_for_full_units/Base_Unit_Width_Depth),offset=floor(axis_unit_length)-full_units) offset;
+function GetUnitsPerInnerSection(axis_unit_length) = let(space_for_full_units=selected_plate_size-left_tab_extent-right_tab_extent) floor(space_for_full_units/Base_Unit_Width_Depth);
+function GetAltStartOffset(margin_start, margin_end, axis_unit_length) = let(end_offset=GetAltEndOffset(margin_end,axis_unit_length),units_per_inner_section=GetUnitsPerInnerSection(axis_unit_length),initial_offset=end_offset%units_per_inner_section,adjusted_offset=(initial_offset==0)?(Base_Unit_Width_Depth*units_per_inner_section+right_tab_extent+margin_start<=selected_plate_size)?units_per_inner_section:1:initial_offset,final_offset=(adjusted_offset==1&&margin_start<(gridplates_min_margin_for_full_tab+0.001))?2:adjusted_offset) final_offset;
+
+function recurse_plates_x(x_depth=0,start_offset=0) = let(end_offset=GetCutOffsetForward(start_offset,margin_left,margin_right,units_wide)) (end_offset<0||x_depth>max_recursion_depth)?recurse_plates_y(x_depth,start_offset,units_wide):concat(recurse_plates_y(x_depth,start_offset,end_offset),recurse_plates_x(x_depth+1,end_offset));
+function recurse_plates_y(x_depth,x_start_offset,x_end_offset,y_depth=0,y_start_offset=0) = let(alt_cuts=x_depth%2!=0,standard_offset=GetCutOffsetForward(y_start_offset,margin_front,margin_back,units_deep),y_end_offset=alt_cuts&&y_start_offset==0&&standard_offset>=0?GetAltStartOffset(margin_front,margin_back,units_deep):standard_offset) (y_end_offset<0||y_depth>max_recursion_depth)?[[x_depth,y_depth,x_start_offset,x_end_offset,y_start_offset,units_deep]]:concat([[x_depth,y_depth,x_start_offset,x_end_offset,y_start_offset,y_end_offset]],recurse_plates_y(x_depth,x_start_offset,x_end_offset,y_depth+1,y_end_offset));
+
+plates = Debug_Mode ? [[0,0,0,2,0,2]] : recurse_plates_x();
+
+function plate_centering_translation(plate) = let(x_start=plate[2],x_end=plate[3],y_start=plate[4],y_end=plate[5],left_amount=x_start==0?margin_left:left_tab_extent,right_amount=(x_end-x_start)*Base_Unit_Width_Depth+(x_end==units_wide?margin_right:right_tab_extent),front_amount=y_start==0?margin_front:left_tab_extent,back_amount=(y_end-y_start)*Base_Unit_Width_Depth+(y_end==units_deep?margin_back:right_tab_extent)) [(left_amount-right_amount)/2,(front_amount-back_amount)/2,0];
+function overall_centering_translation(plate) = let(x_depth=plate[0],y_depth=plate[1],x_start_offset=plate[2],y_start_offset=plate[4],assembled_center=[-Base_Unit_Width_Depth*units_wide/2,-Base_Unit_Width_Depth*units_deep/2,0],exiting_plate_center=plate_centering_translation(plate),plate_offset=[x_start_offset*Base_Unit_Width_Depth+part_spacing*x_depth,y_start_offset*Base_Unit_Width_Depth+part_spacing*y_depth,0],combined=assembled_center+plate_offset-exiting_plate_center) [Mirror_Horizontally?-combined[0]:combined[0],Mirror_Vertically?-combined[1]:combined[1],combined[2]];
+
+module bottom_chamfer_cutter(units) {
+    total_overshoot=max_margin+cut_overshoot;side_length=Bottom_Edge_Chamfer_in_mm+cut_overshoot*2;extrude_length=units*Base_Unit_Width_Depth+total_overshoot*2;
+    translate([-cut_overshoot,-total_overshoot,-cut_overshoot]) rotate([-90,0,0]) linear_extrude(height=extrude_length) polygon(points=[[0,0],[0,-side_length],[side_length,0]]);
+}
+
+
+module sub_baseplate(x_depth,y_depth,x_start_offset,x_end_offset,y_start_offset,y_end_offset) {
+    w=x_end_offset-x_start_offset;d=y_end_offset-y_start_offset;is_left=x_start_offset==0;is_right=x_end_offset==units_wide;is_front=y_start_offset==0;is_back=y_end_offset==units_deep;
+    r_fl=is_left&&is_front?outer_corner_radius:min_corner_radius;r_bl=is_left&&is_back?outer_corner_radius:min_corner_radius;r_br=is_right&&is_back?outer_corner_radius:min_corner_radius;r_fr=is_right&&is_front?outer_corner_radius:min_corner_radius;
+    inner_margin=Interlock_Type==0?-non_gridplates_edge_clearance:tab_extent_allowance;
+    m_l=is_left?margin_left:inner_margin;m_b=is_back?margin_back:inner_margin;m_r=is_right?margin_right:inner_margin;m_f=is_front?margin_front:inner_margin;
+    difference() { 
+        uncut_baseplate(w,d,r_fl,r_bl,r_br,r_fr,m_l,m_b,m_r,m_f);
+        if(Interlock_Type>0) {
+            front_tab_amount=(is_front&&margin_front<gridplates_min_margin_for_full_tab)?0.5:1;back_tab_amount=(is_back&&margin_back<gridplates_min_margin_for_full_tab)?0.5:1;left_tab_amount=is_left?(margin_left<gridplates_min_margin_for_full_tab?0.5:1):0;right_tab_amount=is_right?(margin_right<gridplates_min_margin_for_full_tab?0.5:1):0;
+            if(!is_left) interlock_cutting_tool_left(front_tab_amount,back_tab_amount,d);
+            if(!is_right) translate([w*Base_Unit_Width_Depth,0,0]) interlock_cutting_tool_right(front_tab_amount,back_tab_amount,d);
+            if(!is_front) interlock_cutting_tool_front(left_tab_amount,right_tab_amount,w);
+            if(!is_back) translate([0,d*Base_Unit_Width_Depth,0]) interlock_cutting_tool_back(left_tab_amount,right_tab_amount,w);
+        }
+        if(Bottom_Edge_Chamfer_in_mm>0) {
+            if(is_left) translate([-margin_left,0,0]) bottom_chamfer_cutter(d);
+            if(is_right) translate([Base_Unit_Width_Depth*w+margin_right,0,0]) mirror([1,0,0]) bottom_chamfer_cutter(d);
+            if(is_front) translate([0,-margin_front,0]) rotate([0,0,-90]) mirror([1,0,0]) bottom_chamfer_cutter(w);
+            if(is_back) translate([0,Base_Unit_Width_Depth*d+margin_back,0]) rotate([0,0,-90]) bottom_chamfer_cutter(w);
+        }
+        if (Corner_Cutout_in_mm > 0) {
+            cutter_height = b_total_height + 2 * cut_overshoot;
+            cutter_z = -cut_overshoot;
+            if (is_left && is_front) {
+                translate([-m_l, -m_f, cutter_z])
+                    cylinder(r = Corner_Cutout_in_mm, h = cutter_height);
+            }
+            if (is_left && is_back) {
+                translate([-m_l, d * Base_Unit_Width_Depth + m_b, cutter_z])
+                    cylinder(r = Corner_Cutout_in_mm, h = cutter_height);
+            }
+            if (is_right && is_back) {
+                translate([w * Base_Unit_Width_Depth + m_r, d * Base_Unit_Width_Depth + m_b, cutter_z])
+                    cylinder(r = Corner_Cutout_in_mm, h = cutter_height);
+            }
+            if (is_right && is_front) {
+                translate([w * Base_Unit_Width_Depth + m_r, -m_f, cutter_z])
+                    cylinder(r = Corner_Cutout_in_mm, h = cutter_height);
+            }
+        }
     }
 }
+
+module sub_baseplate_from_list(plate) { translate(plate_centering_translation(plate)) sub_baseplate(plate[0],plate[1],plate[2],plate[3],plate[4],plate[5]); }
+module v_mirrored_base_plate(plate) { if(Mirror_Vertically) mirror([0,1,0]) sub_baseplate_from_list(plate); else sub_baseplate_from_list(plate); }
+module mirrored_base_plate(plate) { if(Mirror_Horizontally) mirror([1,0,0]) v_mirrored_base_plate(plate); else v_mirrored_base_plate(plate); }
+
